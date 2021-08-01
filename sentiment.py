@@ -20,35 +20,30 @@ from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 import re
 
-def fetch_date(channel_list , mention , coin_name  , order = 1000 , save = False ,  since = 0):
+def fetch_date(channel , mention , coin_name  , order = 1000 , save = True ,  since = 0):
   '''
   you can fetch twitter data with this function
   by save = True you can save file to .csv format
   '''
-  for channel in channel_list:
+  c = twint.Config()
 
-    print('--------------------> channel is ' , channel)
+  c.Username = channel
 
-    c = twint.Config()
+  query = mention.replace(',' , ' OR ')
 
-    c.Username = channel
+  c.Search = query
 
-    query = mention.replace(',' , ' OR ')
+  if since !=0:
+    c.Since = since
+  else:
+    c.Limit = order
 
-    c.Search = query
+  c.Store_csv = True
+    
+  twint.output.clean_lists()
 
-    if since !=0:
-      c.Since = since
-    else:
-      c.Limit = order
-
-    c.Store_csv = True
-      
-    twint.output.clean_lists()
-
-    if save : c.Output = f"twit_{channel}_{coin_name}.csv"
-    twint.run.Search(c)
-
+  if save : c.Output = f"twit_{channel}_{coin_name}.csv"
+  twint.run.Search(c)
 
 def preprocessing(dataframe):
   df = dataframe.copy(deep = True)
@@ -73,53 +68,47 @@ def preprocessing(dataframe):
 
   ## tokenization
   stop_words = stopwords.words('english')
-  df['stop_words'] = df['text_p'].apply(lambda x : [char for char in x.split(' ') if char not in stop_words])
+  df['stop_words'] = df['text_punc'].apply(lambda x : [char for char in x.split(' ') if char not in stop_words])
 
   ## remove stop words
-  porter = PorterStemmer()
   df['converter'] = df['stop_words'].apply(lambda x : " ".join([char for char in x]))
 
   ## stemming
+  porter = PorterStemmer()
   df['stem'] = df['converter'].apply(lambda x : [porter.stem(word) for word in x.split(' ')])
 
   ## concatenating them
   df['out'] = df['stem'].apply(lambda x : " ".join([char for char in x]))
 
-  result = df[['twt' , 'lower_txt'  , 'stop_words' , 'converter' , 'stem' , 'out']]
+  result = df[['date' , 'tweet' , 'converter' , 'out']]
 
   return result
 
-df = pd.read_excel('preprocessing.xlsx')
-result = preprocessing(df)
-print(result)
-result.to_excel('result.xlsx')
-# result = preprocessing(df)
-# print(result)
+def NLP(dataframe , column_name):
 
+  dp = dataframe.copy(deep = True)
+  sentiments , scores = [] , []
 
-def NLP(dataframe):
-    dp = dataframe.copy(deep = True)
+  for i in range(0 , len(dp)):
 
-    sentiments , scores = [] , []
-    for i in range(0 , len(dp)):
+      classifier = pipeline('sentiment-analysis')
+      sentiment , score = list(classifier(dp.iloc[i][column_name])[0].values())[0] , list(classifier(dp.iloc[i][column_name])[0].values())[1]
+
+      if i % 20 == 0 :
         print('--------------> here we are in idnex ' , i)
-        print(dp.iloc[i , 0])
-        classifier = pipeline('sentiment-analysis')
-        
-        sentiment , score = list(classifier(dp.iloc[i]['stem'])[0].values())[0] , list(classifier(dp.iloc[i]['stem'])[0].values())[1]
-        print(classifier(dp.iloc[i]['stem']))
-        print('tweet is ' , dp.iloc[i]['stem'])
+        print('tweet is ' , dp.iloc[i][column_name])
         print('sentiment is ' , sentiment)
         print('score is ' , score )
-
         print('---------------------------------------')
-        sentiments.append(sentiment)
-        scores.append(score)
 
-    dp['sentiment'] = np.array(sentiments)
-    dp['score'] = np.array(scores)
+      sentiments.append(sentiment)
+      scores.append(score)
 
-    print(dp)
+  dp['sentiment'] = np.array(sentiments)
+  dp['score'] = np.array(scores)
+
+  return dp[['sentiment' , 'score']]
+
 
 def calc_weighted(df):
     train_set = df
@@ -228,3 +217,14 @@ print('--------> DONE')
 x = 100_000_000
 
 print(x)
+
+
+def main():
+  fetch_date(channel = 'BTCTN' , mention='bitcoin,BTC' , coin_name='BTC' , since = '2021-01-01')
+  btc = pd.read_csv('twit_BTCTN_BTC.csv' , index_col = 0 )
+  words_btc = preprocessing(btc)
+  words_btc.to_excel('BTCTN_words_preprocessing.xlsx')
+  df = pd.read_excel('BTCTN_words_preprocessing.xlsx' , index_col = 0)
+  df = df.iloc[1000: , :]
+  sentiment_btc = NLP(dataframe = df , column_name = 'converter')
+  sentiment_btc.to_excel('sentiment_btc.xlsx')
