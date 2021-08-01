@@ -51,17 +51,14 @@ def fetch_date(channel_list , mention , coin_name  , order = 1000 , save = False
 
 
 def preprocessing(dataframe):
-  '''
-  this function use nltk methods for preprocessing words in order to get better sentiment result 
-  '''
   df = dataframe.copy(deep = True)
 
   string.punctuation = string.punctuation + '➡️' + '—' + '$' + ',' + '#' + '💔' + '.' + '“”' 
   def punctuation_cleaning(text):
-    text = re.sub(r'@[A-Za-z0-9]+' , '' , text) # remove @mention
+    text = re.sub(r'@[A-Za-z0-9]+' , '' , text)  # remove @mention
     text = re.sub(r'RT[\s]+' , '' , text)
     text = re.sub(r'https?:\/\/\S+' , '' , text) # remove the hyper link
-    text= text.replace('"', '') # remove doble quotes
+    text= text.replace('"', '')                  # remove doble quotes
     text = text.translate(str.maketrans('', '', string.punctuation))
 
     return text
@@ -72,28 +69,32 @@ def preprocessing(dataframe):
   df['lower_txt'] = df['twt'].apply(lambda x : x.lower())
 
   ## remove punctuation 
-  df['text_p'] =  df['lower_txt'].apply(lambda x : "".join([char for char in x if char not in string.punctuation]) )
+  df['text_punc'] =  df['lower_txt'].apply(lambda x : "".join([char for char in x if char not in string.punctuation]) )
 
   ## tokenization
-  df['token_p'] = df['text_p'].apply(lambda x : word_tokenize(x))
-
-  ## stop words filtering
   stop_words = stopwords.words('english')
-  df['stop_p'] = df['token_p'].apply(lambda x : [char for char in x if char not in stop_words])
+  df['stop_words'] = df['text_p'].apply(lambda x : [char for char in x.split(' ') if char not in stop_words])
+
+  ## remove stop words
+  porter = PorterStemmer()
+  df['converter'] = df['stop_words'].apply(lambda x : " ".join([char for char in x]))
 
   ## stemming
-  porter = PorterStemmer()
-  df['stem'] = df['stop_p'].apply(lambda x : [porter.stem(word) for word in x ])
+  df['stem'] = df['converter'].apply(lambda x : [porter.stem(word) for word in x.split(' ')])
 
-  ## concatinating
-  result = df[['tweet' , 'twt' , 'lower_txt' , 'text_p' , 'token_p' , 'stop_p' , 'stem']]
+  ## concatenating them
+  df['out'] = df['stem'].apply(lambda x : " ".join([char for char in x]))
 
-  result.to_excel('preprocessing.xlsx')
+  result = df[['twt' , 'lower_txt'  , 'stop_words' , 'converter' , 'stem' , 'out']]
 
   return result
 
-df = pd.read_csv('twit_business_BTC.csv')
+df = pd.read_excel('preprocessing.xlsx')
 result = preprocessing(df)
+print(result)
+result.to_excel('result.xlsx')
+# result = preprocessing(df)
+# print(result)
 
 
 def NLP(dataframe):
@@ -156,7 +157,7 @@ def WMA():
 def get_coin():
     pass
 
-def composition(list_ma , list_shift , dataframe , columns_list):
+def composition(list_ma , list_shift , dataframe , columns_list):  ## TODO : maybe by using EWMA we can get better result
   df = dataframe[columns_list]
   dt = pd.DataFrame()
   for ma in list_ma:
@@ -223,5 +224,7 @@ def OLS(dataframe):
 
 # OLS(dataframe= pca_df)
 
-if __name__ == '__main__ ' : 
-  print('----> done !')
+print('--------> DONE')
+x = 100_000_000
+
+print(x)
