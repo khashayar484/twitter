@@ -19,6 +19,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 import re
+from binance.client import Client
 
 def fetch_date(channel , mention , coin_name  , order = 1000 , save = True ,  since = 0):
   '''
@@ -80,7 +81,8 @@ def preprocessing(dataframe):
   ## concatenating them
   df['out'] = df['stem'].apply(lambda x : " ".join([char for char in x]))
 
-  result = df[['date' , 'tweet' , 'converter' , 'out']]
+  result = df[['date' , 'tweet' , 'converter' , 'out' , 'replies_count' , 'retweets_count' , 'likes_count']] 
+  result = result[::-1]
 
   return result
 
@@ -107,17 +109,15 @@ def NLP(dataframe , column_name):
   dp['sentiment'] = np.array(sentiments)
   dp['score'] = np.array(scores)
 
-  return dp[['sentiment' , 'score']]
+  return dp[['date' , 'sentiment' , 'score' , 'tweet' , column_name , 'replies_count' , 'retweets_count' , 'likes_count']]
 
 
-def calc_weighted(df):
-    train_set = df
-    train_set['datetime'] = pd.to_datetime(train_set.index)
+def calc_weighted(dataframe):
+    train_set = dataframe.copy(deep = True)
+    train_set['datetime'] = pd.to_datetime(train_set['date'])
     first_date, last_date = train_set['datetime'].iloc[0] , train_set['datetime'].iloc[-1]
-    day_after_last_date = last_date + timedelta(days =1 )
-    print('--------> first date is ' , first_date , ' last_date is ' , last_date , ' day after last date is ' , day_after_last_date)
-    train_set['mark'] = -1 * train_set['negative'] + train_set['positive']
-    print('------------> train_Set is ' , train_set)
+    train_set['sentiment_amount'] = train_set['sentiment'].apply(lambda x : -1 if x == 'NEGATIVE' else 1)
+    train_set['mark'] = train_set['sentiment_amount'] * train_set['score']
     index, marks , dates , daily_mark , aggregate_daily_money = 0, [] , [] , [] , pd.DataFrame()
     for date, mark in zip(train_set['datetime'] , train_set['mark']):
         if date == first_date:
@@ -140,11 +140,57 @@ def calc_weighted(df):
 
     return aggregate_daily_money
 
-def WMA():
-    pass
+def weighted_average(dataframe , weighted_by):
+  '''
+  use weighted average by number of likes, number of retweet or number of replies
+  '''
+  train_set = dataframe.copy(deep = True)
+  train_set['datetime'] = pd.to_datetime(train_set['date'])
+  first_date, last_date = train_set['datetime'].iloc[0] , train_set['datetime'].iloc[-1]
+  train_set['sentiment_amount'] = train_set['sentiment'].apply(lambda x : -1 if x == 'NEGATIVE' else 1)
+  train_set['mark'] = train_set['sentiment_amount'] * train_set['score']
+  index, marks, dates, daily_mark, likes, aggregate_daily_money = 0, [] ,[] ,[], [] , pd.DataFrame()
+  for date, mark ,like in zip(train_set['datetime'] , train_set['mark'] , train_set[weighted_by]):
+    if date == first_date:
+      marks.append(mark)
+      likes.append(like)
+      if date == last_date and index == len(train_set) - 1:
+        weighted_av = sum(x*y for x,y in zip(marks , likes)) / sum(likes)
+        print('------------> for last_date ' ,  date , ' we have score ' , weighted_av)
+        dates.append(date)
+        daily_mark.append(weighted_av)
+    else:
+      dates.append(first_date)
+      weighted_av = sum(x*y for x,y in zip(marks , likes)) / sum(likes)
+      first_date = date
+      print('------------> for day ' ,  first_date , ' we have score ' , weighted_av) 
+      marks , likes = [] , []
+      daily_mark.append(weighted_av), likes.append(like) , marks.append(mark)
+    index +=1
 
-def get_coin():
-    pass
+  aggregate_daily_money['daily_money'] = np.array(daily_mark)
+  aggregate_daily_money['date'] = np.array(dates)
+  print(aggregate_daily_money)
+
+  return aggregate_daily_money
+
+def get_coins(coin  , start , end , save = False ):
+  client = Client(api_key, api_secret)
+  one = client.get_historical_klines(f'{coin}USDT' ,  Client.KLINE_INTERVAL_1DAY  ,start_str = start , end_str = end)
+
+  df = pd.DataFrame(one)
+  df.columns = ['Open time','Open','High','Low','Close','Volume' , 'Close time' , 'Quote asset volume' , 'Number of trades' ,\
+                                          'Taker buy base asset volume' , 'Taker buy quote asset volume' , 'ignore']
+
+  df['date'] = pd.to_datetime(df['Open time'] , unit= 'ms')
+  df = df.set_index('Open time')
+
+  df = df.iloc[:-1 , :]
+  if save :   df.to_excel(f'{coin}.xlsx')
+
+  return df
+
+## -----------------------> TODO : add ploting both simple and cumulative plot 
 
 def composition(list_ma , list_shift , dataframe , columns_list):  ## TODO : maybe by using EWMA we can get better result
   df = dataframe[columns_list]
@@ -213,11 +259,7 @@ def OLS(dataframe):
 
 # OLS(dataframe= pca_df)
 
-print('--------> DONE')
-x = 100_000_000
-
-print(x)
-
+## --------------> TODO : sentiment.xlsx must reverse 
 
 def main():
   fetch_date(channel = 'BTCTN' , mention='bitcoin,BTC' , coin_name='BTC' , since = '2021-01-01')
@@ -228,3 +270,10 @@ def main():
   df = df.iloc[1000: , :]
   sentiment_btc = NLP(dataframe = df , column_name = 'converter')
   sentiment_btc.to_excel('sentiment_btc.xlsx')
+  df = pd.read_excel('sentiment_btc.xlsx')
+  df = df[::-1]
+  aggregate = calc_weighted(df)
+  print(aggregate)
+  start_date , end_date = aggregate['date'].iloc[0].strftime("%Y-%m-%d") , aggregate['date'].iloc[-1].strftime("%Y-%m-%d")
+  print('-----------> start date is ' , start_date , ' end s date is ' , end_date)
+  get_coins(coin  = 'BTC' , start = start_date , end  = end_date)
