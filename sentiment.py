@@ -1,4 +1,6 @@
 
+from nltk.corpus.reader import toolbox
+from numpy.lib.function_base import average
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,7 +13,6 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.decomposition import PCA
 import nltk
 from datetime import datetime, timedelta
-from nltk import word_tokenize
 import string
 # from transformers import pipeline
 import statsmodels.api as sm
@@ -175,6 +176,10 @@ def weighted_average(dataframe , weighted_by):
   return aggregate_daily_money
 
 def get_coins(coin  , start , end , save = False ):
+  '''
+  here i get coins data from binance api, before it you need to register on binance.com and get api_key
+  and api_secret to do this.
+  '''
   client = Client(api_key, api_secret)
   one = client.get_historical_klines(f'{coin}USDT' ,  Client.KLINE_INTERVAL_1DAY  ,start_str = start , end_str = end)
 
@@ -191,6 +196,31 @@ def get_coins(coin  , start , end , save = False ):
   return df
 
 ## -----------------------> TODO : add ploting both simple and cumulative plot 
+
+def plot( *ma, dataframe , close_col , quoted_col ):
+  dt = dataframe.astype(float)
+  print(dt)
+  sc = StandardScaler()
+  scale = sc.fit_transform(dt)
+  scale = pd.DataFrame(scale , columns = dt.columns)
+  print('---------> scale is \n ' , scale)
+  for col in scale.columns:
+    plt.plot(scale[col] , label = col)
+  plt.legend()
+  plt.show()
+
+  moving_df = scale[[close_col]]
+  print('----------> moving_df \n' , moving_df)
+  for window in ma:
+    moving_df[f'ma_{window}'] = scale[quoted_col].rolling(window=window).mean()
+  
+  print('--------> final moving average df is \n' , moving_df)
+
+  for col in moving_df.columns:
+    plt.plot(moving_df[col] , label = col)
+  plt.legend()
+  plt.show()
+
 
 def composition(list_ma , list_shift , dataframe , columns_list):  ## TODO : maybe by using EWMA we can get better result
   df = dataframe[columns_list]
@@ -259,7 +289,29 @@ def OLS(dataframe):
 
 # OLS(dataframe= pca_df)
 
+# df = pd.read_excel('sentiment_btc.xlsx')
+# print(df)
+# average_retweets = weighted_average(df , weighted_by='retweets_count')
+# print(average_retweets)
+# average_retweets = average_retweets.set_index('date')
+# coins_data = pd.read_excel('BTC.xlsx')
+# coins_data = coins_data.set_index('date')
+# print(coins_data)
+# total = pd.concat([coins_data , average_retweets] , axis = 1)
+# print(total)
+# total.to_excel('total_set.xlsx')
+
+total = pd.read_excel('total_set.xlsx')
+total = total.dropna()
+print(total)
+total = total.set_index('date')
+print(total[['Close' , 'daily_money']])
+dt = total[['Close' , 'daily_money']]
+
+plot(5,10,20 , dataframe=dt , close_col='Close' , quoted_col='daily_money')
 ## --------------> TODO : sentiment.xlsx must reverse 
+## --------------> TODO : plus one day to get_coin(), end_date +1 
+## --------------> TODO : SMA and WMA change columns name, daily_money 
 
 def main():
   fetch_date(channel = 'BTCTN' , mention='bitcoin,BTC' , coin_name='BTC' , since = '2021-01-01')
