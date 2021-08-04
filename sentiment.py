@@ -1,10 +1,7 @@
 
-from nltk.corpus.reader import toolbox
-from numpy.lib.function_base import average
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from pandas.core.window.rolling import Window
 from sklearn import tree
 import twint
 from datetime import datetime
@@ -21,6 +18,7 @@ from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 import re
 from binance.client import Client
+import seaborn as sns
 
 def fetch_date(channel , mention , coin_name  , order = 1000 , save = True ,  since = 0):
   '''
@@ -88,6 +86,9 @@ def preprocessing(dataframe):
   return result
 
 def NLP(dataframe , column_name):
+  '''
+  return : 'date' , 'sentiment' , 'score' , 'tweet' , column_name , 'replies_count' , 'retweets_count' , 'likes_count'
+  '''
 
   dp = dataframe.copy(deep = True)
   sentiments , scores = [] , []
@@ -124,20 +125,17 @@ def calc_weighted(dataframe):
         if date == first_date:
             marks.append(mark)
             if date == last_date and index == len(train_set) - 1:
-                print('------------> for last_date ' ,  date , ' we have score ' , np.array(marks).sum()) 
                 dates.append(date)
                 daily_mark.append(np.array(marks).sum())
         else:
             dates.append(first_date)
             daily_mark.append(np.array(marks).sum())
-            print('------------> for day ' ,  first_date , ' we have score ' , np.array(marks).sum()) 
             first_date = date
             marks = []
             marks.append(mark)
         index +=1
-    aggregate_daily_money['daily_money'] = np.array(daily_mark)
+    aggregate_daily_money['daily_average_sentiment_news'] = np.array(daily_mark)
     aggregate_daily_money['date'] = np.array(dates)
-    print(aggregate_daily_money)
 
     return aggregate_daily_money
 
@@ -150,37 +148,35 @@ def weighted_average(dataframe , weighted_by):
   first_date, last_date = train_set['datetime'].iloc[0] , train_set['datetime'].iloc[-1]
   train_set['sentiment_amount'] = train_set['sentiment'].apply(lambda x : -1 if x == 'NEGATIVE' else 1)
   train_set['mark'] = train_set['sentiment_amount'] * train_set['score']
-  index, marks, dates, daily_mark, likes, aggregate_daily_money = 0, [] ,[] ,[], [] , pd.DataFrame()
+  index, marks, dates, daily_mark, likes, aggregated_twit = 0, [] ,[] ,[], [] , pd.DataFrame()
   for date, mark ,like in zip(train_set['datetime'] , train_set['mark'] , train_set[weighted_by]):
     if date == first_date:
       marks.append(mark)
       likes.append(like)
       if date == last_date and index == len(train_set) - 1:
         weighted_av = sum(x*y for x,y in zip(marks , likes)) / sum(likes)
-        print('------------> for last_date ' ,  date , ' we have score ' , weighted_av)
         dates.append(date)
         daily_mark.append(weighted_av)
     else:
       dates.append(first_date)
       weighted_av = sum(x*y for x,y in zip(marks , likes)) / sum(likes)
       first_date = date
-      print('------------> for day ' ,  first_date , ' we have score ' , weighted_av) 
       marks , likes = [] , []
       daily_mark.append(weighted_av), likes.append(like) , marks.append(mark)
     index +=1
 
-  aggregate_daily_money['daily_money'] = np.array(daily_mark)
-  aggregate_daily_money['date'] = np.array(dates)
-  print(aggregate_daily_money)
+  aggregated_twit[f'weighed_by_{weighted_by}'] = np.array(daily_mark)
+  aggregated_twit['date'] = np.array(dates)
 
-  return aggregate_daily_money
+  return aggregated_twit
 
 def get_coins(coin  , start , end , save = False ):
   '''
   here i get coins data from binance api, before it you need to register on binance.com and get api_key
   and api_secret to do this.
   '''
-  client = Client(api_key, api_secret)
+  # client = Client(api_key, api_secret)
+  client = Client('UUH1nlQxWwMGVyQJysJcWeYZf9SdgfDzLJOldIC0QVrioFnqXRhdZKMZEh6hJGkx', 'Kwg2hIDyidwNt9BuBL22TazN2LrDDBq0bqzuQHzD1lmpgW6sLAQN8Ov2FWhyz4v3') 
   one = client.get_historical_klines(f'{coin}USDT' ,  Client.KLINE_INTERVAL_1DAY  ,start_str = start , end_str = end)
 
   df = pd.DataFrame(one)
@@ -195,67 +191,72 @@ def get_coins(coin  , start , end , save = False ):
 
   return df
 
-## -----------------------> TODO : add ploting both simple and cumulative plot 
-
-def plot( *ma, dataframe , close_col , quoted_col ):
-  dt = dataframe.astype(float)
-  print(dt)
-  sc = StandardScaler()
-  scale = sc.fit_transform(dt)
-  scale = pd.DataFrame(scale , columns = dt.columns)
-  print('---------> scale is \n ' , scale)
-  for col in scale.columns:
-    plt.plot(scale[col] , label = col)
-  plt.legend()
-  plt.show()
-
-  moving_df = scale[[close_col]]
-  print('----------> moving_df \n' , moving_df)
-  for window in ma:
-    moving_df[f'ma_{window}'] = scale[quoted_col].rolling(window=window).mean()
-  
-  print('--------> final moving average df is \n' , moving_df)
-
-  for col in moving_df.columns:
-    plt.plot(moving_df[col] , label = col)
-  plt.legend()
-  plt.show()
-
-
-def composition(list_ma , list_shift , dataframe , columns_list):  ## TODO : maybe by using EWMA we can get better result
-  df = dataframe[columns_list]
-  dt = pd.DataFrame()
-  for ma in list_ma:
-      dt[f'ma_{ma}'] = df['wma_news'].rolling(window = ma).mean()
-      dt[f'cum_ma_{ma}'] = dt[f'ma_{ma}'] / dt[f'ma_{ma}'].iloc[ma]
-      print('dt[ma] \n ' ,dt[f'cum_ma_{ma}'] )
-      for shift in list_shift:
-          dt[f'cum_ma{ma}_shift_{shift}'] = dt[f'cum_ma_{ma}'].shift(shift)
-
-  dt['cum_Close'] = df['Close'] / df['Close'].iloc[0]
-  print('--------> total is' , dt)
-
-  return dt
-
-def feature_selection(df , cut_off):
+def composition(list_ma , list_shift , dataframe , corr_plot = False , pyplot = False ,  mode = 'cumulative'):  
   '''
-  selected_important features : 
+  Create different implementations and see the correlation coefficient,
+  quoted_column: wma_close, sma_news
+  list_ma: list of moving averages
+  mode: cumulative, moving_average
+  '''
+  df = dataframe.copy(deep = True)
+  quoted_column = df.columns[1]
+  composition_df, plot_df = pd.DataFrame(), pd.DataFrame()
+
+  if mode == 'cumulative':
+    composition_df['cum_Close'] = df['Close'] / df['Close'].iloc[0]
+    for ma in list_ma:
+        composition_df[f'ma_{ma}'] = composition_df[quoted_column].rolling(window = ma).mean()
+        composition_df[f'cum_ma_{ma}'] = composition_df[f'ma_{ma}'] / composition_df[f'ma_{ma}'].iloc[ma]
+        if pyplot: plot_df[f'cum_ma_{ma}'] = composition_df[f'cum_ma_{ma}'] 
+        for shift in list_shift:
+            composition_df[f'cum_ma{ma}_shift_{shift}'] = composition_df[f'cum_ma_{ma}'].shift(shift)
+  
+  if mode == 'moving_average':
+    composition_df['Close'] = df['Close']
+    for ma in list_ma:
+      composition_df[f'ma_{ma}'] = df[quoted_column].rolling(window = ma).mean()
+      if pyplot: plot_df[f'ma_{ma}'] = composition_df[f'ma_{ma}']
+      for shift in list_shift:
+        composition_df[f'ma_{ma}_shift_{shift}'] = composition_df[f'ma_{ma}'].shift(shift)
+    
+  if pyplot == True:
+    sc = StandardScaler()
+    plot_df['Close'] = df['Close']
+    scale = sc.fit_transform(plot_df)
+    scale = pd.DataFrame(scale, columns = plot_df.columns)
+    for col in  scale.columns:
+      plt.plot(scale[col] , label = col)
+    plt.legend()
+    plt.show()
+
+  if corr_plot: 
+    mn = MinMaxScaler()
+    composition_df = composition_df.dropna()
+    scale = mn.fit_transform(composition_df)
+    scale = pd.DataFrame(scale, columns = composition_df.columns)
+    corr = scale.corr()
+    sns.heatmap(corr, annot=True , cmap= 'Blues')
+    plt.title('--- correlation ---')
+    plt.tight_layout()
+    plt.show()
+
+  return composition_df
+
+def feature_selection(df , target_name , cut_off , mode = 'RandomForest'):
+  '''
+  selected_important features : select most important features with respect to target value
+  this function apply Random
   '''
   dataframe = df.dropna()
   model = RandomForestRegressor(n_estimators= 1500 , criterion='mse' , max_depth=10)
-  #   model = XGBClassifier()
-  x_train , y_train = dataframe.drop(columns = 'cum_Close') , dataframe[['cum_Close']]
+  x_train , y_train = dataframe.drop(columns = target_name) , dataframe[[target_name]]
 
   print('-----> X_train shape is ' , x_train.shape ,  ' y_train shape is ' , y_train.shape)
   sc = StandardScaler()
   y_train_scale = sc.fit_transform(y_train)
   model.fit(x_train , y_train_scale.ravel()) 
-
   importance = model.feature_importances_
-
-  print('-------------------------> total features is ' , importance)
   scores , cols_index   = [] , []
-  print('------------------------->  scoring')
   for num,score in enumerate(importance):
       # print('Feature: %0d, Score: %.5f' % (num,score))
       if score > cut_off:
@@ -263,69 +264,51 @@ def feature_selection(df , cut_off):
           cols_index.append(num)
 
   imp_df = x_train.iloc[: , cols_index]
-  print('-------------- > imp_df columsn is  ' , imp_df.columns)
-  print('-------------- > important score is ' , scores)
+  max_score, arg_max = max(scores), np.argmax(scores)
+  most_imp = x_train[[imp_df.columns[arg_max]]]
+
   imp_df = pd.concat([y_train , imp_df] , axis = 1)
+  most_imp = pd.concat([y_train , most_imp] , axis =1 )
 
-  return imp_df
-
-
-# df = pd.read_excel('composition.xlsx' , index_col = 0)
+  return imp_df, most_imp
 
 
-def OLS(dataframe):
-  '''
-  fit ols line to importance features from PCA and use p_values and t_test
-  '''
+def linear_regression(dataframe, target_column):
   df = dataframe.dropna()
-  print('-----------> first \n  ' , df)
-#   df = ((df.shift(5) / df) -1 )*100
-#   df = df.dropna()
-  print('-----------> secend df is \n' , df)
-  x,y = df.drop(columns = 'cum_Close') , df[['cum_Close']]
+  sc = StandardScaler()
+  scale = sc.fit_transform(df)
+  scale = pd.DataFrame(scale , columns= df.columns)
+  x,y = scale.drop(columns = target_column) , scale[[target_column]]
   x = sm.add_constant(x)
   results = sm.OLS(y , x).fit()
-  print('----------> OLS result \n ' , results.summary())
+  print('-----------> OLS result \n ' , results.summary())
+  ## ----------> OLS on return 
+  df = df.astype(float)
+  pct = df.pct_change().dropna()
+  x_r, y_r = pct.drop(columns = target_column) , pct[[target_column]]
+  x_r = sm.add_constant(x_r)
+  print('------> x_r shape ' , x_r.shape , ' y_r shape is ' , y_r.shape)
+  results = sm.OLS(y_r , x_r).fit()
+  print('-----------> OLS result based on return \n ' , results.summary())
 
-# OLS(dataframe= pca_df)
 
-# df = pd.read_excel('sentiment_btc.xlsx')
-# print(df)
-# average_retweets = weighted_average(df , weighted_by='retweets_count')
-# print(average_retweets)
-# average_retweets = average_retweets.set_index('date')
-# coins_data = pd.read_excel('BTC.xlsx')
-# coins_data = coins_data.set_index('date')
-# print(coins_data)
-# total = pd.concat([coins_data , average_retweets] , axis = 1)
-# print(total)
-# total.to_excel('total_set.xlsx')
+def main(channel_name , coin , search_keywords , plot = False):
+  # fetch_date(channel = channel_name, mention = search_keywords, coin_name = coin , since = '2021-01-01')
+  # twit_df = pd.read_csv(f'twit_{channel_name}_{coin}.csv' , index_col = 0)
+  # preprocess_df = preprocessing(twit_df)
+  # sentiment_btc = NLP(dataframe = preprocess_df , column_name = 'converter')
+  sentiment_btc = pd.read_excel('sentiment.xlsx')
+  sentiment_btc = sentiment_btc[::-1]
+  aggregated_twit =   weighted_average(sentiment_btc, weighted_by='retweets_count')
+  start_date , end_date = aggregated_twit['date'].iloc[0].strftime("%Y-%m-%d") , aggregated_twit['date'].iloc[-1].strftime("%Y-%m-%d")
+  coin_date = get_coins(coin  = coin , start = start_date , end  = end_date)
+  aggregated_twit, coin_date = aggregated_twit.set_index('date'), coin_date.set_index('date')
+  concatenate = pd.concat([coin_date[['Close']], aggregated_twit] , axis = 1)
+  print(concatenate)
+  ## you can also make different compositions of dataframe and see the correlation coefficient
+  range_of_dataframe = composition(list_ma=[5,10,20] , list_shift=[5,10,20] , dataframe=concatenate, corr_plot=True, pyplot=True ,mode = 'moving_average' )
+  features = feature_selection(df = range_of_dataframe, target_name='Close', cut_off=0.1)
+  linear_regression(dataframe=features[1], target_column='Close')
 
-total = pd.read_excel('total_set.xlsx')
-total = total.dropna()
-print(total)
-total = total.set_index('date')
-print(total[['Close' , 'daily_money']])
-dt = total[['Close' , 'daily_money']]
 
-plot(5,10,20 , dataframe=dt , close_col='Close' , quoted_col='daily_money')
-## --------------> TODO : sentiment.xlsx must reverse 
-## --------------> TODO : plus one day to get_coin(), end_date +1 
-## --------------> TODO : SMA and WMA change columns name, daily_money 
-
-def main():
-  fetch_date(channel = 'BTCTN' , mention='bitcoin,BTC' , coin_name='BTC' , since = '2021-01-01')
-  btc = pd.read_csv('twit_BTCTN_BTC.csv' , index_col = 0 )
-  words_btc = preprocessing(btc)
-  words_btc.to_excel('BTCTN_words_preprocessing.xlsx')
-  df = pd.read_excel('BTCTN_words_preprocessing.xlsx' , index_col = 0)
-  df = df.iloc[1000: , :]
-  sentiment_btc = NLP(dataframe = df , column_name = 'converter')
-  sentiment_btc.to_excel('sentiment_btc.xlsx')
-  df = pd.read_excel('sentiment_btc.xlsx')
-  df = df[::-1]
-  aggregate = calc_weighted(df)
-  print(aggregate)
-  start_date , end_date = aggregate['date'].iloc[0].strftime("%Y-%m-%d") , aggregate['date'].iloc[-1].strftime("%Y-%m-%d")
-  print('-----------> start date is ' , start_date , ' end s date is ' , end_date)
-  get_coins(coin  = 'BTC' , start = start_date , end  = end_date)
+main(channel_name= 'BTCTN' , coin = 'BTC' , search_keywords= 'bitcoin,BTC' , plot = True)
