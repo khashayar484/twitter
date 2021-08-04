@@ -8,9 +8,10 @@ afetr that by concating crypto data and aggreagted sentiment dataframe.
 
 for seeing the relation between them by using function composition() and creating different version of data for seeing correlation coeffiecent of them.
 
-<img src="https://user-images.githubusercontent.com/54494078/128258422-dd02ebea-0dc5-4f36-bf7d-5dcf06a2b132.PNG" width="300" height="300" align = 'center' >
+<img src="https://user-images.githubusercontent.com/54494078/128258422-dd02ebea-0dc5-4f36-bf7d-5dcf06a2b132.PNG" width="800" height="600" align = 'center' >
 
 correlation plot 
-<img src="https://user-images.githubusercontent.com/54494078/128258666-3e938586-99de-4826-9f1d-7c8fdca8befe.PNG" width="300" height="300" align = 'center' >
+
+<img src="https://user-images.githubusercontent.com/54494078/128258666-3e938586-99de-4826-9f1d-7c8fdca8befe.PNG" width="800" height="600" align = 'center' >
 
 here featureselection() applying RandomForest for selecting most relevant features with respet to target value.
