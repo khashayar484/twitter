@@ -11,7 +11,7 @@ from sklearn.decomposition import PCA
 import nltk
 from datetime import datetime, timedelta
 import string
-# from transformers import pipeline
+from transformers import pipeline
 import statsmodels.api as sm
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from nltk.corpus import stopwords
@@ -293,22 +293,22 @@ def linear_regression(dataframe, target_column):
 
 
 def main(channel_name , coin , search_keywords , plot = False):
-  # fetch_date(channel = channel_name, mention = search_keywords, coin_name = coin , since = '2021-01-01')
-  # twit_df = pd.read_csv(f'twit_{channel_name}_{coin}.csv' , index_col = 0)
-  # preprocess_df = preprocessing(twit_df)
-  # sentiment_btc = NLP(dataframe = preprocess_df , column_name = 'converter')
-  sentiment_btc = pd.read_excel('sentiment.xlsx')
+  fetch_date(channel = channel_name, mention = search_keywords, coin_name = coin , since = '2021-01-01')
+  twit_df = pd.read_csv(f'twit_{channel_name}_{coin}.csv' , index_col = 0)
+  preprocess_df = preprocessing(twit_df)
+  sentiment_btc = NLP(dataframe = preprocess_df , column_name = 'converter')
   sentiment_btc = sentiment_btc[::-1]
   aggregated_twit =   weighted_average(sentiment_btc, weighted_by='retweets_count')
   start_date , end_date = aggregated_twit['date'].iloc[0].strftime("%Y-%m-%d") , aggregated_twit['date'].iloc[-1].strftime("%Y-%m-%d")
   coin_date = get_coins(coin  = coin , start = start_date , end  = end_date)
   aggregated_twit, coin_date = aggregated_twit.set_index('date'), coin_date.set_index('date')
   concatenate = pd.concat([coin_date[['Close']], aggregated_twit] , axis = 1)
-  print(concatenate)
   ## you can also make different compositions of dataframe and see the correlation coefficient
   range_of_dataframe = composition(list_ma=[5,10,20] , list_shift=[5,10,20] , dataframe=concatenate, corr_plot=True, pyplot=True ,mode = 'moving_average' )
-  features = feature_selection(df = range_of_dataframe, target_name='Close', cut_off=0.1)
+  features = feature_selection(df = range_of_dataframe, target_name = 'Close', cut_off = 0.1)
   linear_regression(dataframe=features[1], target_column='Close')
 
 
 main(channel_name= 'BTCTN' , coin = 'BTC' , search_keywords= 'bitcoin,BTC' , plot = True)
+
+if __name__ == '__main__' : main()
