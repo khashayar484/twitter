@@ -24,8 +24,12 @@ As you can see, the R_squre is 0.4 here, which means we can capture 40% of the v
 ## contribution
 
 the are several things we can do:
-use another indicator besides the sentiment like volume, hash rate, difficulty, etc.\n
-Use another model than linear regression.\n
-Use a longer time frame than here.\n
-Use portfolio of crypto and check the relation to cryptocurrency sentiment analysis.\n
+use another indicator besides the sentiment like volume, hash rate, difficulty, etc.
+
+Use another model than linear regression.
+
+Use a longer time frame than here.
+
+Use portfolio of crypto and check the relation to cryptocurrency sentiment analysis.
+
 use better text preprocessing before use transformers.
