@@ -21,12 +21,12 @@ i use this function for getting the most relevant feauters. at the end by using 
  
 As you can see, the R_squre is 0.4 here, which means we can capture 40% of the variation of Closing price by ten days moving average of daily sentiments. And also, the coefficient of sentiment is 0.63 and is also significant by the p_value measure, but the intercept is not. 
 
-## contribution
+## TODO
 
 the are several things we can do:
 use another indicator besides the sentiment like volume, hash rate, difficulty, etc.
 
-Use another model than linear regression.
+Use another model than linear regression. applying backtesting on test-set.
 
 Use a longer time frame than here.
 
