@@ -176,7 +176,6 @@ def get_coins(coin  , start , end , save = False ):
   and api_secret to do this.
   '''
   # client = Client(api_key, api_secret)
-  client = Client('UUH1nlQxWwMGVyQJysJcWeYZf9SdgfDzLJOldIC0QVrioFnqXRhdZKMZEh6hJGkx', 'Kwg2hIDyidwNt9BuBL22TazN2LrDDBq0bqzuQHzD1lmpgW6sLAQN8Ov2FWhyz4v3') 
   one = client.get_historical_klines(f'{coin}USDT' ,  Client.KLINE_INTERVAL_1DAY  ,start_str = start , end_str = end)
 
   df = pd.DataFrame(one)
