@@ -6,7 +6,7 @@ this repository implement sentiment analysis based on BERT Transformers on Twitt
 After that, by contacting crypto data and aggregated sentiment dataframe. We can see the relation between them; using the composition() function and setting different moving averages and shift lists, we can see the correlation coefficient between them and select the most appropriate one for our analysis.
 
 ### bitcoin close price and different moving average of sentiments.
-<img src="https://user-images.githubusercontent.com/54494078/128258422-dd02ebea-0dc5-4f36-bf7d-5dcf06a2b132.PNG" width="800" height="600" align = 'center' >
+<img src="https://user-images.githubusercontent.com/54494078/129261360-f434b216-6ab8-4c5f-b287-2a87bf7269bf.png" width="800" height="600" align = 'center' >
 
 ### correlation plot 
 
